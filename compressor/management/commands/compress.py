@@ -29,6 +29,8 @@ from compressor.conf import settings
 from compressor.exceptions import OfflineGenerationError
 from compressor.templatetags.compress import CompressorNode
 from compressor.utils import walk, any
+from pyjade.ext.django.loaders import preprocessor
+
 
 def patched_render(self, context):
     # 'Fake' _render method that just returns the context instead of
@@ -154,7 +156,7 @@ class Command(NoArgsCommand):
         compress nodes (not the content of the possibly linked files!).
         """
         extensions = options.get('extensions')
-        extensions = self.handle_extensions(extensions or ['html'])
+        extensions = self.handle_extensions(extensions or ['html', 'jade'])
         verbosity = int(options.get("verbosity", 0))
         if not log:
             log = StringIO()
@@ -202,8 +204,10 @@ class Command(NoArgsCommand):
             try:
                 template_file = open(template_name)
                 try:
-                    template = Template(template_file.read().decode(
-                                        settings.FILE_CHARSET))
+                    source = template_file.read().decode(settings.FILE_CHARSET)
+                    if template_name.endswith('jade'):
+                        source = preprocessor(source)
+                    template = Template(source)
                 finally:
                     template_file.close()
             except IOError:  # unreadable file -> ignore
